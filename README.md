@@ -24,7 +24,7 @@ com gateway de pagamento e conformidade LGPD.
 
 1. Clone o repositorio:
 ```bash
-git clone https://github.com/caliel-dolci/raizes-nordeste-backend.git
+git clone https://github.com/5114371/raizes-nordeste-backend.git
 cd raizes-nordeste-backend
 ```
 
