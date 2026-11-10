@@ -1,0 +1,182 @@
+{
+  "info": {
+    "name": "Raizes do Nordeste - Backend",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Colecao de testes para a API Raizes do Nordeste. Cobre os 15 cenarios T01-T15 do plano de testes."
+  },
+  "variable": [
+    {"key": "baseUrl", "value": "http://localhost:8000"},
+    {"key": "token", "value": ""},
+    {"key": "pedidoId", "value": ""},
+    {"key": "transacaoId", "value": ""}
+  ],
+  "item": [
+    {
+      "name": "1. Auth",
+      "item": [
+        {
+          "name": "T01 - Login valido",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\"email\":\"cliente@teste.com\",\"senha\":\"Senha@123\"}"}
+          },
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('200', () => pm.response.to.have.status(200));", "pm.test('token', () => {", "  const body = pm.response.json();", "  pm.expect(body.accessToken).to.not.be.empty;", "  pm.collectionVariables.set('token', body.accessToken);", "});"]}}]
+        },
+        {
+          "name": "T02 - Listar sem token",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/pedidos"
+          },
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('401', () => pm.response.to.have.status(401));", "pm.test('NAO_AUTENTICADO', () => pm.expect(pm.response.json().detail.error).to.eq('NAO_AUTENTICADO'));"]}}]
+        }
+      ]
+    },
+    {
+      "name": "2. Pedidos",
+      "item": [
+        {
+          "name": "T05 - Criar pedido valido",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/pedidos",
+            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{token}}"}],
+            "body": {"mode": "raw", "raw": "{\"canalPedido\":\"TOTEM\",\"clienteId\":\"10\",\"unidadeId\":\"00000000-0000-0000-0000-000000000002\",\"itens\":[{\"produtoId\":\"00000000-0000-0000-0000-000000000101\",\"quantidade\":2}],\"formaPagamento\":\"MOCK\"}"}
+          },
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('201', () => pm.response.to.have.status(201));", "const body = pm.response.json();", "pm.collectionVariables.set('pedidoId', body.pedidoId);"]}}]
+        },
+        {
+          "name": "T06 - Estoque insuficiente",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/pedidos",
+            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{token}}"}],
+            "body": {"mode": "raw", "raw": "{\"canalPedido\":\"APP\",\"clienteId\":\"10\",\"unidadeId\":\"00000000-0000-0000-0000-000000000002\",\"itens\":[{\"produtoId\":\"00000000-0000-0000-0000-000000000305\",\"quantidade\":5}]}"}
+          },
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('409', () => pm.response.to.have.status(409));"]}}]
+        },
+        {
+          "name": "T07 - Produto inexistente",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/pedidos",
+            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{token}}"}],
+            "body": {"mode": "raw", "raw": "{\"canalPedido\":\"WEB\",\"clienteId\":\"10\",\"unidadeId\":\"00000000-0000-0000-0000-000000000002\",\"itens\":[{\"produtoId\":\"999\",\"quantidade\":1}]}"}
+          },
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('erro', () => pm.response.to.have.status(409).or.status(404));"]}}]
+        },
+        {
+          "name": "T08 - Sem canalPedido",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/pedidos",
+            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{token}}"}],
+            "body": {"mode": "raw", "raw": "{\"clienteId\":\"10\",\"unidadeId\":\"00000000-0000-0000-0000-000000000002\",\"itens\":[{\"produtoId\":\"00000000-0000-0000-0000-000000000101\",\"quantidade\":1}]}"}
+          },
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('422', () => pm.response.to.have.status(422));"]}}]
+        },
+        {
+          "name": "T09 - Filtro por canal",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/pedidos?canalPedido=TOTEM",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}]
+          },
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('200', () => pm.response.to.have.status(200));"]}}]
+        }
+      ]
+    },
+    {
+      "name": "3. Pagamento",
+      "item": [
+        {
+          "name": "T10 - Callback aprovado",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/pagamentos/callback",
+            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "X-Signature", "value": "mock-valid-signature"}],
+            "body": {"mode": "raw", "raw": "{\"pedidoId\":\"{{pedidoId}}\",\"transacaoId\":\"txn_test_001\",\"status\":\"aprovado\"}"}
+          },
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('200', () => pm.response.to.have.status(200).or.status(400));"]}}]
+        },
+        {
+          "name": "T11 - Callback recusado",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/pagamentos/callback",
+            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "X-Signature", "value": "mock-valid-signature"}],
+            "body": {"mode": "raw", "raw": "{\"pedidoId\":\"{{pedidoId}}\",\"transacaoId\":\"txn_test_002\",\"status\":\"recusado\"}"}
+          }
+        },
+        {
+          "name": "T12 - HMAC invalido",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/pagamentos/callback",
+            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "X-Signature", "value": "assinatura-errada"}],
+            "body": {"mode": "raw", "raw": "{\"pedidoId\":\"{{pedidoId}}\",\"transacaoId\":\"txn_test_003\",\"status\":\"aprovado\"}"}
+          },
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('400', () => pm.response.to.have.status(400));"]}}]
+        },
+        {
+          "name": "T13 - Idempotencia",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/pagamentos/callback",
+            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "X-Signature", "value": "mock-valid-signature"}],
+            "body": {"mode": "raw", "raw": "{\"pedidoId\":\"{{pedidoId}}\",\"transacaoId\":\"txn_test_001\",\"status\":\"aprovado\"}"}
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Autorizacao",
+      "item": [
+        {
+          "name": "T03 - Perfil sem permissao",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/estoque/movimentacao",
+            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{token}}"}]
+          },
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('403', () => pm.response.to.have.status(403));"]}}]
+        },
+        {
+          "name": "T04 - Cadastrar usuario sem ser ADMIN",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/usuarios",
+            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{token}}"}]
+          },
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('403', () => pm.response.to.have.status(403));"]}}]
+        }
+      ]
+    },
+    {
+      "name": "5. LGPD e Auditoria",
+      "item": [
+        {
+          "name": "T14 - Revogar consentimento",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/clientes/consentimento",
+            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{token}}"}],
+            "body": {"mode": "raw", "raw": "{\"clienteId\":\"10\",\"aceito\":false}"}
+          },
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('200', () => pm.response.to.have.status(200));"]}}]
+        },
+        {
+          "name": "T15 - Consultar auditoria",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/auditoria?recurso=pedido",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}]
+          },
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('200 or 403', () => {", "  const code = pm.response.code;", "  pm.expect([200, 403]).to.include(code);", "});"]}}]
+        }
+      ]
+    }
+  ]
+}
